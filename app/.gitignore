@@ -1,0 +1,31 @@
+# Android Studio
+.idea/
+*.iml
+.gradle/
+local.properties
+
+# Build outputs
+build/
+*/build/
+
+# External native build
+.cxx/
+.externalNativeBuild/
+
+# Kotlin / Java
+*.class
+
+# Log files
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Gradle wrapper (keep these files)
+!gradle-wrapper.jar
+!gradle-wrapper.properties
+
+# Keystore files (VERY IMPORTANT)
+*.jks
+*.keystore

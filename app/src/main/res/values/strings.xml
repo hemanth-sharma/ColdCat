@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">ColdCat</string>
+    <string name="accessibility_description">ColdCat uses Accessibility Service to detect and block selected apps during your focus sessions.</string>
+</resources>

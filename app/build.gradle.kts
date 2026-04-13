@@ -51,25 +51,25 @@ dependencies {
     implementation(libs.androidx.material3)
 
     // Navigation Compose
-    implementation("androidx.navigation:navigation-compose:2.7.7")
+    implementation("androidx.navigation:navigation-compose:2.8.5")
 
-    // Room Database
-    implementation("androidx.room:room-runtime:2.6.1")
-    implementation("androidx.room:room-ktx:2.6.1")
-    kapt("androidx.room:room-compiler:2.6.1")
+    // Room Database // NEW VERSION UPDATE
+    implementation("androidx.room:room-runtime:2.7.0")
+    implementation("androidx.room:room-ktx:2.7.0")
+    kapt("androidx.room:room-compiler:2.7.0")
 
     // Lifecycle ViewModel Compose
-    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.7.0")
-    implementation("androidx.lifecycle:lifecycle-runtime-compose:2.7.0")
+    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.7")
+    implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.7")
 
     // Coroutines
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
 
     // Icons Extended
-    implementation("androidx.compose.material:material-icons-extended:1.6.7")
+    implementation("androidx.compose.material:material-icons-extended:1.7.6")
 
     // DataStore Preferences
-    implementation("androidx.datastore:datastore-preferences:1.0.0")
+    implementation("androidx.datastore:datastore-preferences:1.1.1")
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)

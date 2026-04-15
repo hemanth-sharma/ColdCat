@@ -8,7 +8,6 @@ import androidx.lifecycle.viewModelScope
 import com.example.coldcat.data.*
 import com.example.coldcat.util.AppUtils
 import com.example.coldcat.util.InstalledApp
-import com.example.coldcat.util.PrefsManager
 import com.example.coldcat.util.TimeUtils
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.*
@@ -17,7 +16,7 @@ import kotlinx.coroutines.withContext
 
 class MainViewModel(application: Application) : AndroidViewModel(application) {
 
-    private val db = com.example.coldcat.data.AppDatabase.getInstance(application)
+    private val db  = AppDatabase.getInstance(application)
     private val dao = db.blockDao()
 
     val blockedApps: StateFlow<List<BlockedApp>> = dao.getAllBlockedApps()
@@ -29,12 +28,18 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val schedules: StateFlow<List<BlockSchedule>> = dao.getAllSchedules()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
+    /**
+     * FIXED: Only active when:
+     *  1. There is at least one schedule in the DB
+     *  2. At least one enabled schedule covers the current time
+     */
     val isBlockActive: StateFlow<Boolean> = schedules.map { list ->
-        TimeUtils.isAnyScheduleActive(list)
+        if (list.isEmpty()) false
+        else TimeUtils.isAnyScheduleActive(list)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
-    // Installed apps cache
-    private val _installedApps = MutableStateFlow<List<InstalledApp>>(emptyList())
+    // Installed apps
+    private val _installedApps  = MutableStateFlow<List<InstalledApp>>(emptyList())
     val installedApps: StateFlow<List<InstalledApp>> = _installedApps.asStateFlow()
 
     private val _isLoadingApps = MutableStateFlow(false)
@@ -43,27 +48,22 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun loadInstalledApps(context: Context) {
         viewModelScope.launch {
             _isLoadingApps.value = true
-            val apps = withContext(Dispatchers.IO) {
+            _installedApps.value = withContext(Dispatchers.IO) {
                 AppUtils.getInstalledUserApps(context)
             }
-            _installedApps.value = apps
             _isLoadingApps.value = false
         }
     }
 
     fun addBlockedApp(app: BlockedApp) {
         viewModelScope.launch {
-            if (!isBlockActive.value) {
-                dao.insertBlockedApp(app)
-            }
+            if (!isBlockActive.value) dao.insertBlockedApp(app)
         }
     }
 
     fun removeBlockedApp(app: BlockedApp) {
         viewModelScope.launch {
-            if (!isBlockActive.value) {
-                dao.deleteBlockedApp(app)
-            }
+            if (!isBlockActive.value) dao.deleteBlockedApp(app)
         }
     }
 
@@ -80,9 +80,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun removeBlockedWebsite(site: BlockedWebsite) {
         viewModelScope.launch {
-            if (!isBlockActive.value) {
-                dao.deleteBlockedWebsite(site)
-            }
+            if (!isBlockActive.value) dao.deleteBlockedWebsite(site)
         }
     }
 
@@ -90,44 +88,26 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             if (!isBlockActive.value) {
                 val adjustedEnd = TimeUtils.applyBufferRule(startMinute, endMinute)
-                dao.insertSchedule(
-                    BlockSchedule(
-                        startMinute = startMinute,
-                        endMinute = adjustedEnd,
-                        label = label
-                    )
-                )
+                dao.insertSchedule(BlockSchedule(startMinute = startMinute, endMinute = adjustedEnd, label = label))
             }
         }
     }
 
     fun deleteSchedule(schedule: BlockSchedule) {
         viewModelScope.launch {
-            if (!isBlockActive.value) {
-                dao.deleteSchedule(schedule)
-            }
+            if (!isBlockActive.value) dao.deleteSchedule(schedule)
         }
     }
 
     fun toggleSchedule(schedule: BlockSchedule) {
         viewModelScope.launch {
-            if (!isBlockActive.value) {
-                dao.updateSchedule(schedule.copy(isEnabled = !schedule.isEnabled))
-            }
+            // Allow toggling even during active block so user can disable a schedule
+            dao.updateSchedule(schedule.copy(isEnabled = !schedule.isEnabled))
         }
     }
 
-    fun needsVpnPermission(context: Context): Boolean {
-        return VpnService.prepare(context) != null
-    }
-
-    private fun normalizeDomain(domain: String): String {
-        return domain.lowercase()
-            .removePrefix("https://")
-            .removePrefix("http://")
-            .removePrefix("www.")
-            .trimEnd('/')
-            .split("/")[0]
-            .trim()
-    }
+    private fun normalizeDomain(domain: String): String =
+        domain.lowercase()
+            .removePrefix("https://").removePrefix("http://").removePrefix("www.")
+            .trimEnd('/').split("/")[0].trim()
 }

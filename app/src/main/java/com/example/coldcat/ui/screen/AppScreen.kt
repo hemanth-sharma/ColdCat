@@ -264,7 +264,6 @@ private fun AppPickerRow(
             Text(text = app.packageName, color = CatGray, fontSize = 11.sp)
         }
         Checkbox(
-            // Change this
             checked = isBlocked,
             onCheckedChange = { onToggle(it) },
             colors = CheckboxDefaults.colors(

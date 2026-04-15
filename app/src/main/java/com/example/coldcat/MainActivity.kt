@@ -44,11 +44,14 @@ val NAV_ITEMS = listOf(
 
 class MainActivity : ComponentActivity() {
 
+    // Exposed so HomeScreen composable can read and react to VPN grant state
+    val vpnGrantedState = mutableStateOf(false)
+
     private val vpnPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) { result ->
         if (result.resultCode == RESULT_OK) {
-            // VPN permission granted — start VPN
+            vpnGrantedState.value = true
             startVpnService()
         }
     }
@@ -56,37 +59,55 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // Ensure enforcement service is running
-        startForegroundService(Intent(this, BlockEnforcementService::class.java))
+        try {
+            startForegroundService(Intent(this, BlockEnforcementService::class.java))
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+
+        vpnGrantedState.value = (VpnService.prepare(this) == null)
 
         setContent {
             ColdCatTheme {
                 ColdCatApp(
+                    vpnGranted = vpnGrantedState,
                     onRequestVpnPermission = { requestVpnPermission() }
                 )
             }
         }
     }
 
-    private fun requestVpnPermission() {
+    override fun onResume() {
+        super.onResume()
+        vpnGrantedState.value = (VpnService.prepare(this) == null)
+    }
+
+    fun requestVpnPermission() {
         val intent = VpnService.prepare(this)
         if (intent != null) {
             vpnPermissionLauncher.launch(intent)
         } else {
-            // Already granted
+            vpnGrantedState.value = true
             startVpnService()
         }
     }
 
-    private fun startVpnService() {
-        val intent = Intent(this, VpnBlockerService::class.java)
-            .apply { action = VpnBlockerService.ACTION_START }
-        startService(intent)
+    fun startVpnService() {
+        try {
+            val intent = Intent(this, VpnBlockerService::class.java)
+                .apply { action = VpnBlockerService.ACTION_START }
+            startService(intent)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
     }
 }
 
 @Composable
-fun ColdCatApp(onRequestVpnPermission: () -> Unit) {
+fun ColdCatApp(
+    vpnGranted: MutableState<Boolean>,
+    onRequestVpnPermission: () -> Unit
+) {
     val viewModel: MainViewModel = viewModel()
     var selectedRoute by remember { mutableStateOf("home") }
 
@@ -105,8 +126,13 @@ fun ColdCatApp(onRequestVpnPermission: () -> Unit) {
                 .padding(paddingValues)
         ) {
             when (selectedRoute) {
-                "home" -> HomeScreen(viewModel = viewModel, onNavigate = { selectedRoute = it })
-                "apps" -> AppsScreen(viewModel = viewModel)
+                "home" -> HomeScreen(
+                    viewModel = viewModel,
+                    vpnGranted = vpnGranted.value,
+                    onNavigate = { selectedRoute = it },
+                    onRequestVpnPermission = onRequestVpnPermission
+                )
+                "apps"     -> AppsScreen(viewModel = viewModel)
                 "websites" -> WebsitesScreen(viewModel = viewModel)
                 "schedule" -> ScheduleScreen(viewModel = viewModel)
             }
@@ -115,10 +141,7 @@ fun ColdCatApp(onRequestVpnPermission: () -> Unit) {
 }
 
 @Composable
-fun ColdCatBottomNav(
-    selectedRoute: String,
-    onNavigate: (String) -> Unit
-) {
+fun ColdCatBottomNav(selectedRoute: String, onNavigate: (String) -> Unit) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -134,53 +157,31 @@ fun ColdCatBottomNav(
             horizontalArrangement = Arrangement.SpaceEvenly
         ) {
             NAV_ITEMS.forEach { item ->
-                val isSelected = selectedRoute == item.route
-                NavBarItem(
-                    item = item,
-                    isSelected = isSelected,
-                    onClick = { onNavigate(item.route) }
-                )
+                NavBarItem(item = item, isSelected = selectedRoute == item.route, onClick = { onNavigate(item.route) })
             }
         }
     }
 }
 
 @Composable
-private fun NavBarItem(
-    item: NavItem,
-    isSelected: Boolean,
-    onClick: () -> Unit
-) {
+private fun NavBarItem(item: NavItem, isSelected: Boolean, onClick: () -> Unit) {
     val bgColor by androidx.compose.animation.animateColorAsState(
-        targetValue = if (isSelected) CatRedDim else androidx.compose.ui.graphics.Color.Transparent,
-        label = "navBg"
+        targetValue = if (isSelected) CatRedDim else androidx.compose.ui.graphics.Color.Transparent, label = "navBg"
     )
     val iconColor by androidx.compose.animation.animateColorAsState(
-        targetValue = if (isSelected) CatRed else CatGrayDim,
-        label = "navIcon"
+        targetValue = if (isSelected) CatRed else CatGrayDim, label = "navIcon"
     )
-
     IconButton(
         onClick = onClick,
-        modifier = Modifier
-            .clip(RoundedCornerShape(12.dp))
-            .background(bgColor)
-            .size(56.dp)
+        modifier = Modifier.clip(RoundedCornerShape(12.dp)).background(bgColor).size(56.dp)
     ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
-        ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
             Icon(
                 imageVector = if (isSelected) item.selectedIcon else item.unselectedIcon,
-                contentDescription = item.label,
-                tint = iconColor,
-                modifier = Modifier.size(22.dp)
+                contentDescription = item.label, tint = iconColor, modifier = Modifier.size(22.dp)
             )
             Text(
-                text = item.label,
-                color = iconColor,
-                fontSize = 9.sp,
+                text = item.label, color = iconColor, fontSize = 9.sp,
                 fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
                 modifier = Modifier.padding(top = 2.dp)
             )

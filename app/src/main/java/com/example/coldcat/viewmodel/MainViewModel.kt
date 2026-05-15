@@ -11,8 +11,10 @@ import com.example.coldcat.util.InstalledApp
 import com.example.coldcat.util.TimeUtils
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.delay
 
 class MainViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -32,9 +34,20 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
      * FIXED: Only active when:
      *  1. There is at least one schedule in the DB
      *  2. At least one enabled schedule covers the current time
+     *  3. There is at least one blocked app or website
      */
-    val isBlockActive: StateFlow<Boolean> = schedules.map { list ->
+    private val tickerFlow = flow {
+        while (true) {
+            emit(Unit)
+            delay(10000) // check every 10s
+        }
+    }
+
+    val isBlockActive: StateFlow<Boolean> = combine(
+        schedules, blockedApps, blockedWebsites, tickerFlow
+    ) { list, apps, sites, _ ->
         if (list.isEmpty()) false
+        else if (apps.isEmpty() && sites.isEmpty()) false
         else TimeUtils.isAnyScheduleActive(list)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 

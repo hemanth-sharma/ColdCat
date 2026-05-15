@@ -10,10 +10,14 @@ import com.example.coldcat.ui.screen.BlockedOverlayActivity
 import com.example.coldcat.util.BlockOverlayManager
 import com.example.coldcat.util.TimeUtils
 import kotlinx.coroutines.*
+import android.os.Handler
+import android.os.Looper
+
 
 class AccessibilityBlockerService : AccessibilityService() {
 
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+    private val mainHandler = Handler(Looper.getMainLooper())
     private var lastBlockedPkg: String? = null
     private var lastBlockTime = 0L
     val now = System.currentTimeMillis()
@@ -30,9 +34,10 @@ class AccessibilityBlockerService : AccessibilityService() {
         isRunning = true
         Log.d(TAG, "Accessibility service connected")
 
+        val db = AppDatabase.getInstance(applicationContext)
+
         // Observe blocked apps
         scope.launch {
-            val db = AppDatabase.getInstance(applicationContext)
             db.blockDao().getAllBlockedApps().collect { apps ->
                 blockedPackages = apps.map { it.packageName }.toSet()
                 Log.d(TAG, "Blocked packages updated: $blockedPackages")
@@ -41,7 +46,6 @@ class AccessibilityBlockerService : AccessibilityService() {
 
         // Observe schedules
         scope.launch {
-            val db = AppDatabase.getInstance(applicationContext)
             db.blockDao().getAllSchedules().collect { list ->
                 schedules = list
                 Log.d(TAG, "Schedules updated: ${list.size} schedules")
@@ -50,7 +54,7 @@ class AccessibilityBlockerService : AccessibilityService() {
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
-        event ?: return
+        if (event == null) return
         if (event.eventType != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) return
 
         val pkg = event.packageName?.toString() ?: return
@@ -61,6 +65,7 @@ class AccessibilityBlockerService : AccessibilityService() {
         if (pkg == "com.android.systemui") return
         if (pkg == "com.android.launcher3") return
         if (pkg.startsWith("com.miui")) return          // MIUI system UI
+        if (pkg.startsWith("com.miui.home")) return
         if (pkg.startsWith("com.android.settings")) return
 
         if (pkg !in blockedPackages) return
@@ -68,20 +73,21 @@ class AccessibilityBlockerService : AccessibilityService() {
         Log.d(TAG, "Window changed: $pkg | schedules=${schedules.size} | blockActive=$isActive | blocked=${pkg in blockedPackages}")
 
         if (!isActive) return
-        Log.d(TAG, "BLOCKING: $pkg")
-
-        // 1. INSTANT ESCAPE from app
-        performGlobalAction(GLOBAL_ACTION_HOME)
-
         val now = System.currentTimeMillis()
 
+        // 🚫 debounce (prevents spam + flicker)
         if (pkg == lastBlockedPkg && now - lastBlockTime < 3000) return
 
         lastBlockedPkg = pkg
         lastBlockTime = now
 
-//        showBlockingOverlay(pkg)
-        BlockOverlayManager.show(applicationContext, pkg)
+        Log.d(TAG, "BLOCKING: $pkg")
+
+        // 1. INSTANT ESCAPE from app
+        performGlobalAction(GLOBAL_ACTION_HOME)
+
+        // 2. Show blocking activity
+        showBlockingOverlay(pkg)
 
     }
 

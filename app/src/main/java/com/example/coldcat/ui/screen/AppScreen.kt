@@ -277,13 +277,15 @@ private fun AppPickerRow(
 
 @Composable
 fun AppIconView(icon: Drawable?, size: Int) {
-    val bitmap = if (icon != null) {
-        try {
-            icon.toBitmap(size * 2, size * 2)
-        } catch (e: Exception) {
-            null
-        }
-    } else null
+    val bitmap = remember(icon) {
+        if (icon != null) {
+            try {
+                icon.toBitmap(size * 2, size * 2)
+            } catch (e: Exception) {
+                null
+            }
+        } else null
+    }
 
     if (bitmap != null) {
         Image(

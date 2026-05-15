@@ -55,7 +55,7 @@ class VpnBlockerService : VpnService() {
             val builder = Builder()
                 .setSession("ColdCat VPN")
                 .addAddress("10.0.0.2", 32)
-                .addRoute("0.0.0.0", 0)
+                .addRoute("8.8.8.8", 32)
                 .addDnsServer("8.8.8.8")
                 .setMtu(1500)
 
@@ -116,9 +116,6 @@ class VpnBlockerService : VpnService() {
 
                 // Only process IPv4 UDP packets to port 53 (DNS)
                 if (!isIPv4UdpDns(packet)) {
-                    // Forward non-DNS packets normally (just write back to TUN)
-                    // For a strict DNS-only blocker, we let non-DNS through
-                    outputStream.write(packet, 0, length)
                     continue
                 }
 

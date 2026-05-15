@@ -53,7 +53,7 @@ object TimeUtils {
      * If the requested duration is >= 23 hours, cap end at (start - 60 mod 1440).
      */
     fun applyBufferRule(startMinute: Int, requestedEndMinute: Int): Int {
-        val duration = (requestedEndMinute - startMinute + 1440) % 1440
+        val duration = if (startMinute == requestedEndMinute) 1440 else (requestedEndMinute - startMinute + 1440) % 1440
         return if (duration >= 23 * 60) {
             (startMinute - 60 + 1440) % 1440
         } else {

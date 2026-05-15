@@ -42,8 +42,10 @@ class BlockEnforcementService : Service() {
             while (isActive) {
                 try {
                     val schedules = db.blockDao().getAllSchedulesOnce()
-                    // FIXED: Only active if schedules exist AND time matches
-                    val isActive = schedules.isNotEmpty() && TimeUtils.isAnyScheduleActive(schedules)
+                    val apps = db.blockDao().getAllBlockedAppsOnce()
+                    val sites = db.blockDao().getAllBlockedWebsitesOnce()
+                    // FIXED: Only active if schedules exist AND time matches AND (apps or sites exist)
+                    val isActive = schedules.isNotEmpty() && (apps.isNotEmpty() || sites.isNotEmpty()) && TimeUtils.isAnyScheduleActive(schedules)
 
                     PrefsManager.setBlockActive(applicationContext, isActive)
                     Log.d(TAG, "Schedule check: ${schedules.size} schedules, blockActive=$isActive, time=${TimeUtils.currentMinuteOfDay()}")
